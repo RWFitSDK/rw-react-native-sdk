@@ -1,0 +1,102 @@
+{
+  "name": "react-native-rwfit-ble",
+  "version": "0.0.3",
+  "description": "React Native TurboModule bridge for the RWFIT BLE SDK",
+  "main": "./lib/module/index.js",
+  "types": "./lib/typescript/src/index.d.ts",
+  "exports": {
+    ".": {
+      "react-native-rwfit-ble-source": "./src/index.ts",
+      "types": "./lib/typescript/src/index.d.ts",
+      "default": "./lib/module/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "lib",
+    "android",
+    "ios",
+    "docs",
+    "*.podspec",
+    "react-native.config.js",
+    "!ios/build",
+    "!android/build",
+    "!android/app",
+    "!android/gradle",
+    "!android/gradlew",
+    "!android/gradlew.bat",
+    "!android/local.properties",
+    "!**/__tests__",
+    "!**/__fixtures__",
+    "!**/__mocks__",
+    "!**/.*"
+  ],
+  "scripts": {
+    "clean": "del-cli android/build ios/build lib",
+    "prepare": "bob build",
+    "test": "npm run prepare && node --test test/*.test.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.build.json",
+    "codegen": "mkdir -p build/generated && node node_modules/@react-native/codegen/lib/cli/combine/combine-js-to-schema-cli.js build/generated/RwfitBleSchema.json src/NativeRwfitBle.ts && node node_modules/@react-native/codegen/lib/cli/generators/generate-all.js build/generated/RwfitBleSchema.json RwfitBleSpec build/generated/RwfitBleSpec com.rwfitble",
+    "codegen:android": "npm run codegen",
+    "codegen:ios": "npm run codegen"
+  },
+  "keywords": [
+    "react-native",
+    "ios",
+    "android"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RWFitSDK/rw-react-native-sdk.git"
+  },
+  "author": "RWFitSDK <developer@dhouse88.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/RWFitSDK/rw-react-native-sdk/issues"
+  },
+  "homepage": "https://github.com/RWFitSDK/rw-react-native-sdk#readme",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "devDependencies": {
+    "@react-native/babel-preset": "0.86.2",
+    "@types/react": "^19.2.0",
+    "del-cli": "^7.0.0",
+    "react": "19.2.3",
+    "react-native": "0.86.2",
+    "react-native-builder-bob": "^0.41.0",
+    "typescript": "^6.0.3"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-native": ">=0.86.0 <0.87.0"
+  },
+  "packageManager": "npm@11.18.0",
+  "react-native-builder-bob": {
+    "source": "src",
+    "output": "lib",
+    "targets": [
+      [
+        "module",
+        {
+          "esm": true
+        }
+      ],
+      [
+        "typescript",
+        {
+          "project": "tsconfig.build.json"
+        }
+      ]
+    ]
+  },
+  "codegenConfig": {
+    "name": "RwfitBleSpec",
+    "type": "modules",
+    "jsSrcsDir": "src",
+    "android": {
+      "javaPackageName": "com.rwfitble"
+    }
+  }
+}

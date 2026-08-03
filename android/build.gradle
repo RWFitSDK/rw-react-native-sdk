@@ -1,0 +1,60 @@
+buildscript {
+  ext.RwfitBle = [
+    kotlinVersion: "2.1.20",
+    minSdkVersion: 26,
+    compileSdkVersion: 36
+  ]
+
+  ext.getExtOrDefault = { prop ->
+    if (rootProject.ext.has(prop)) {
+      return rootProject.ext.get(prop)
+    }
+
+    return RwfitBle[prop]
+  }
+
+  repositories {
+    google()
+    mavenCentral()
+    maven { url "$projectDir/repo" }
+  }
+
+  dependencies {
+    classpath "com.android.tools.build:gradle:8.12.0"
+    // noinspection DifferentKotlinGradleVersion
+    classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${getExtOrDefault('kotlinVersion')}"
+  }
+}
+
+
+apply plugin: "com.android.library"
+apply plugin: "kotlin-android"
+
+apply plugin: "com.facebook.react"
+
+repositories {
+  google()
+  mavenCentral()
+  maven { url "$projectDir/repo" }
+}
+
+android {
+  namespace "com.rwfitble"
+
+  compileSdkVersion getExtOrDefault("compileSdkVersion")
+
+  defaultConfig {
+    minSdkVersion getExtOrDefault("minSdkVersion")
+  }
+
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+  }
+}
+
+dependencies {
+  implementation "com.facebook.react:react-android"
+  implementation files("repo/com/rwfit/blesdk-rwfit/2.260724/blesdk-rwfit-2.260724.aar")
+  implementation "com.alibaba:fastjson:1.2.83"
+}
