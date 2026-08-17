@@ -8,12 +8,12 @@ for a runnable application.
 
 | Item | Value |
 |---|---|
-| Package version | `0.0.3` |
+| Package version | `0.0.5` |
 | Native SDK version | `RW_SDK_V2.0.0_20260724` on Android and iOS |
 | React Native | `0.86.x`, New Architecture / TurboModule only |
 | Node.js | `22.11.0+` |
 | Android | minSdk 26, compileSdk 36 |
-| iOS | iOS 12.0+, arm64 physical devices only |
+| iOS | iOS 15.1+, arm64 physical devices only |
 | Delivery | GitHub repository, pinned by git tag |
 | Native SDKs | Bundled Android AAR and iOS `DHBleSDK.framework` |
 
@@ -61,7 +61,7 @@ npm run ios -- --device "Your iPhone Name"
 Install and pin a GitHub release tag:
 
 ```sh
-npm install github:RWFitSDK/rw-react-native-sdk#v0.0.3
+npm install github:RWFitSDK/rw-react-native-sdk#v0.0.5
 ```
 
 Equivalent `package.json` entry:
@@ -69,7 +69,7 @@ Equivalent `package.json` entry:
 ```json
 {
   "dependencies": {
-    "react-native-rwfit-ble": "github:RWFitSDK/rw-react-native-sdk#v0.0.3"
+    "react-native-rwfit-ble": "github:RWFitSDK/rw-react-native-sdk#v0.0.5"
   }
 }
 ```
@@ -223,7 +223,7 @@ All methods, types, and enums below are exported from
 |---|---|
 | `init()` | Initialize once per app lifecycle |
 | `getSdkVersion()` | Native SDK version |
-| `getPluginVersion()` | `0.0.3_nativeSdkVersion` |
+| `getPluginVersion()` | `0.0.5_nativeSdkVersion` |
 | `startScan()` / `stopScan()` | Start/stop scanning; auto-stop is about 10 seconds |
 | `connect(device)` | Connect the complete scanned `BleDevice` |
 | `disconnect()` | Disconnect without deleting app persistence |
@@ -366,7 +366,8 @@ Use `startRealtimeMeasure(metric)`, `stopRealtimeMeasure(metric)`,
 `onRealtimeData`, and `onRealtimeMeasureComplete`.
 
 `RealtimeMetric` values are `Hr`, `BloodOxy`, `Hrv`, `Pressure`, `BloodSugar`,
-and `BloodPressure`. Only one metric can run at a time; stop it before switching.
+`BloodPressure`, and `Temperature`. Only one metric can run at a time; stop it
+before switching.
 
 `RealtimeData` fields:
 
@@ -377,6 +378,19 @@ and `BloodPressure`. Only one metric can run at a time; stop it before switching
 | `diastolic` | `number?` | Optional diastolic value for blood-pressure measurements |
 | `timestampSec` | `number` | Unix timestamp in seconds |
 | `timestampMs` | `number` | Compatibility timestamp in milliseconds |
+
+`HealthType` numeric values are:
+
+| Enum | Value | Meaning |
+|---|---:|---|
+| `HealthType.Hr` | 1 | Heart rate |
+| `HealthType.BloodOxy` | 3 | Blood oxygen |
+| `HealthType.BloodPressure` | 4 | Blood pressure |
+| `HealthType.Pressure` | 8 | Stress |
+| `HealthType.BloodSugar` | 9 | Blood sugar |
+| `HealthType.MuslimCount` | 10 | Muslim/prayer count |
+| `HealthType.Temperature` | 11 | Body temperature |
+| `HealthType.Hrv` | 13 | HRV |
 
 New code should prefer `timestampSec`. The exported `timestampMs(data)` helper
 converts Unix seconds to milliseconds.
@@ -428,7 +442,8 @@ default. Despite the `Duration` suffix in `getAlarmVibrationDuration()` and
 ### 5.7 Alarms and health alerts
 
 Use `getAlarm()`, `setAlarm(alarms)`, and `deleteAllAlarm()`. Alarm updates are
-full replacements.
+full replacements. When the device has no alarms, `getAlarm()` resolves normally
+with `[]`.
 
 `Alarm` fields:
 
@@ -457,6 +472,13 @@ only the completion marker `100`.
 `bloodSugar`, `temp`, or `muslimCount`. Timestamps are Unix seconds. Main units
 are bpm, %, mmHg, ms, and meters. Historical temperature is `temp / 10` °C.
 Historical sleep values are 0=awake, 1=light, 2=deep, and 3=REM.
+
+Step and Muslim-count results contain daily totals plus every item for that day:
+
+| `type` | Daily object fields | `items` fields |
+|---|---|---|
+| `step` | `time`, `date`, `totalSteps`, `totalCalorie`, `totalDistance`, `activityDataInterval`, `items` | `time`, `index`, `steps`, `calorie`, `distance` |
+| `muslimCount` | `time`, `date`, `totalCount`, `items` | `time`, `count` |
 
 ### 5.9 OTA
 

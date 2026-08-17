@@ -9,7 +9,8 @@ This module is built against native SDK version
 ## Demo preview
 
 <p align="center">
-  <img src=".github/assets/IMG_0377.PNG" alt="RWFIT React Native demo running on iOS" width="360" />
+  <img src=".github/assets/demo-home.PNG" alt="RWFIT React Native demo home screen on iOS" width="360" />
+  <img src=".github/assets/demo-device.PNG" alt="RWFIT React Native demo device screen on iOS" width="360" />
 </p>
 
 ## Requirements
@@ -18,17 +19,14 @@ This module is built against native SDK version
 - RWFIT native SDK `RW_SDK_V2.0.0_20260724`
 - Node.js `22.11.0+`
 - Android minSdk 26
-- iOS 12.0+ on a physical arm64 device
-
-The bundled iOS `DHBleSDK.framework` contains only an iPhoneOS arm64 slice,
-so the iOS Simulator is not supported.
+- iOS 15.1+ on a physical arm64 device
 
 ## Installation
 
 Install a tagged GitHub release:
 
 ```sh
-npm install github:RWFitSDK/rw-react-native-sdk#v0.0.3
+npm install github:RWFitSDK/rw-react-native-sdk#v0.0.5
 ```
 
 Or add it directly to the application's `package.json`:
@@ -36,7 +34,7 @@ Or add it directly to the application's `package.json`:
 ```json
 {
   "dependencies": {
-    "react-native-rwfit-ble": "github:RWFitSDK/rw-react-native-sdk#v0.0.3"
+    "react-native-rwfit-ble": "github:RWFitSDK/rw-react-native-sdk#v0.0.5"
   }
 }
 ```

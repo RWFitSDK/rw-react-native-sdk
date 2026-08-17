@@ -1,274 +1,429 @@
 /* eslint-disable no-void */
-import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import React, {
+  type PropsWithChildren,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import {
-  Alert,
+  ActivityIndicator,
+  Dimensions,
   PermissionsAndroid,
   Platform,
+  Pressable,
   StatusBar,
   StyleSheet,
+  Text,
+  View,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
 import {
-  RwfitBle,
-  type BleDevice,
-  type ConnectStateEvent,
-  type DynamicMap,
-} from 'react-native-rwfit-ble';
-import {DemoCapabilities} from './src/capabilities';
-import {
-  AlarmPage,
-  ControlPage,
-  DeviceInfoPage,
-  HealthAlertPage,
-  NotifyPage,
-  OtaPage,
-  RealtimePage,
-  SensorRawPage,
-  SyncPage,
-  TimedMonitorPage,
-} from './src/FeaturePages';
+  initialWindowMetrics,
+  SafeAreaProvider,
+  SafeAreaView,
+} from 'react-native-safe-area-context';
+import {RwfitBle} from 'react-native-rwfit-ble';
+import {DevicePage} from './src/DevicePage';
+import {HealthHistoryPage} from './src/HealthHistoryPage';
+import type {HealthDefinition} from './src/healthMetadata';
 import {HomePage} from './src/HomePage';
 import {
   detectSystemLanguage,
   I18nProvider,
   type Language,
+  useI18n,
 } from './src/i18n';
-import type {PageName} from './src/routes';
+import {OtaPage} from './src/OtaPage';
 import {ScanPage} from './src/ScanPage';
-import {colors, errorMessage} from './src/ui';
+import {colors, PrimaryButton} from './src/ui';
+import {useDemoController} from './src/useDemoController';
 import {WorkoutPage} from './src/WorkoutPage';
 
-async function requestBlePermissions(): Promise<void> {
+type Tab = 'home' | 'device';
+type Overlay =
+  | {kind: 'scan'}
+  | {kind: 'workout'}
+  | {kind: 'ota'}
+  | {kind: 'history'; definition: HealthDefinition}
+  | undefined;
+
+const fallbackSafeAreaMetrics = {
+  frame: {
+    x: 0,
+    y: 0,
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
+  },
+  insets: {top: 0, right: 0, bottom: 0, left: 0},
+};
+
+async function requestBlePermissions(): Promise<boolean> {
   if (Platform.OS !== 'android') {
-    return;
+    return true;
   }
   const permissions =
     Platform.Version >= 31
       ? [
           PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
           PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
         ]
       : [PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION];
   const results = await PermissionsAndroid.requestMultiple(permissions);
-  if (
-    permissions.some(
-      permission => results[permission] !== PermissionsAndroid.RESULTS.GRANTED,
-    )
-  ) {
-    throw new Error('BLE_PERMISSION_DENIED');
-  }
+  return permissions.every(
+    permission => results[permission] === PermissionsAndroid.RESULTS.GRANTED,
+  );
 }
 
 function App() {
   const [language, setLanguage] = useState<Language>(detectSystemLanguage);
-  const tr = useCallback(
-    (zh: string, en: string) => (language === 'zh' ? zh : en),
-    [language],
+
+  return (
+    <SafeAreaProvider
+      initialMetrics={initialWindowMetrics ?? fallbackSafeAreaMetrics}>
+      <I18nProvider language={language}>
+        <PermissionGate>
+          <DemoShell
+            language={language}
+            onToggleLanguage={() =>
+              setLanguage(value => (value === 'zh' ? 'en' : 'zh'))
+            }
+          />
+        </PermissionGate>
+      </I18nProvider>
+    </SafeAreaProvider>
   );
-  const [page, setPage] = useState<PageName>('home');
-  const [sdkVersion, setSdkVersion] = useState('-');
-  const [connectionStatus, setConnectionStatus] = useState<{
-    kind: 'initializing' | 'idle' | 'connecting' | 'connected' | 'disconnected' | 'failed';
-    name?: string;
-    detail?: string;
-  }>({kind: 'initializing'});
-  const [ready, setReady] = useState(false);
-  const [capabilityMap, setCapabilityMap] = useState<DynamicMap>({});
-  const [savedDevice, setSavedDevice] = useState<BleDevice>();
-  const pendingDevice = useRef<BleDevice | undefined>(undefined);
-  const capabilities = useMemo(
-    () => new DemoCapabilities(capabilityMap),
-    [capabilityMap],
+}
+
+function PermissionGate({children}: PropsWithChildren) {
+  const {tr} = useI18n();
+  const [status, setStatus] = useState<'requesting' | 'ready' | 'denied'>(
+    'requesting',
   );
+  const attemptRef = useRef(0);
 
-  useEffect(() => {
-    const connectSubscription = RwfitBle.onConnectState(
-      (event: ConnectStateEvent) => {
-        setConnectionStatus({
-          kind: event.state,
-          name: event.name,
-          detail: event.reason,
-        });
-        if (event.state === 'disconnected' || event.state === 'failed') {
-          setReady(false);
-          setCapabilityMap({});
-          setPage('home');
-        }
-      },
-    );
-    const menuSubscription = RwfitBle.onFunctionMenu(menu => {
-      const candidate = pendingDevice.current;
-      setCapabilityMap(menu.raw);
-      setReady(true);
-      setConnectionStatus({
-        kind: 'connected',
-        name: menu.name || candidate?.name || menu.mac,
-      });
-      setSavedDevice({
-        name: menu.name || candidate?.name || '',
-        mac: menu.mac || candidate?.mac || '',
-        uuid: menu.uuid || candidate?.uuid,
-        rssi: candidate?.rssi ?? 0,
-      });
-      pendingDevice.current = undefined;
-      setPage('home');
-      void RwfitBle.iosSetBindedStatus(true).catch(() => undefined);
-    });
-
-    const initialize = async () => {
-      try {
-        await requestBlePermissions();
-        await RwfitBle.init();
-        setSdkVersion(await RwfitBle.getSdkVersion());
-        const connected = await RwfitBle.isConnected();
-        if (connected) {
-          setConnectionStatus({kind: 'connected'});
-          const result = await RwfitBle.getFunctionList();
-          const raw = result.supportMenu;
-          if (raw && typeof raw === 'object') {
-            setCapabilityMap(raw as DynamicMap);
-            setReady(true);
-          }
-        } else {
-          setConnectionStatus({kind: 'idle'});
-        }
-      } catch (error) {
-        setConnectionStatus({kind: 'failed', detail: errorMessage(error)});
-      }
-    };
-    void initialize();
-
-    return () => {
-      connectSubscription.remove();
-      menuSubscription.remove();
-    };
-  }, []);
-
-  const reconnect = useCallback(async () => {
-    if (!savedDevice) {
-      return;
-    }
+  const initialize = useCallback(async () => {
+    const attempt = ++attemptRef.current;
+    setStatus('requesting');
     try {
-      if (await RwfitBle.isConnected()) {
-        Alert.alert(tr('提示', 'Notice'), tr('设备已连接', 'Device is already connected'));
+      const granted = await requestBlePermissions();
+      if (attempt !== attemptRef.current) {
         return;
       }
-      pendingDevice.current = savedDevice;
-      setConnectionStatus({kind: 'connecting', name: savedDevice.name});
-      await RwfitBle.reconnect(savedDevice);
-    } catch (error) {
-      setConnectionStatus({kind: 'failed', detail: errorMessage(error)});
-    }
-  }, [savedDevice, tr]);
-
-  const disconnect = useCallback(async () => {
-    try {
-      await RwfitBle.disconnect();
-      setReady(false);
-      setCapabilityMap({});
-      setConnectionStatus({kind: 'disconnected'});
-    } catch (error) {
-      setConnectionStatus({kind: 'failed', detail: errorMessage(error)});
+      if (!granted) {
+        setStatus('denied');
+        return;
+      }
+      await RwfitBle.init().catch(() => undefined);
+      if (attempt === attemptRef.current) {
+        setStatus('ready');
+      }
+    } catch {
+      if (attempt === attemptRef.current) {
+        setStatus('denied');
+      }
     }
   }, []);
 
-  const connectionState = useMemo(() => {
-    const labels = {
-      initializing: tr('正在初始化…', 'Initializing…'),
-      idle: tr('未连接', 'Not connected'),
-      connecting: tr('连接中', 'Connecting'),
-      connected: tr('已连接', 'Connected'),
-      disconnected: tr('已断开', 'Disconnected'),
-      failed: tr('失败', 'Failed'),
+  useEffect(() => {
+    void initialize();
+    return () => {
+      attemptRef.current += 1;
     };
-    const detail =
-      connectionStatus.detail === 'BLE_PERMISSION_DENIED'
-        ? tr('蓝牙权限未授权', 'Bluetooth permission denied')
-        : connectionStatus.detail;
-    return `${labels[connectionStatus.kind]}${
-      connectionStatus.name ? ` · ${connectionStatus.name}` : ''
-    }${detail ? ` (${detail})` : ''}`;
-  }, [connectionStatus, tr]);
+  }, [initialize]);
 
-  const back = useCallback(() => setPage('home'), []);
-  let content: React.ReactNode;
-  switch (page) {
-    case 'scan':
-      content = (
-        <ScanPage
-          onBack={back}
-          onConnecting={device => {
-            pendingDevice.current = device;
-            setConnectionStatus({
-              kind: 'connecting',
-              name: device.name || device.mac,
-            });
-          }}
-        />
-      );
-      break;
-    case 'deviceInfo':
-      content = <DeviceInfoPage capabilities={capabilities} onBack={back} />;
-      break;
-    case 'timedMonitor':
-      content = <TimedMonitorPage capabilities={capabilities} onBack={back} />;
-      break;
-    case 'realtime':
-      content = <RealtimePage capabilities={capabilities} onBack={back} />;
-      break;
-    case 'control':
-      content = <ControlPage capabilities={capabilities} onBack={back} />;
-      break;
-    case 'healthAlert':
-      content = <HealthAlertPage capabilities={capabilities} onBack={back} />;
-      break;
-    case 'sensorRaw':
-      content = <SensorRawPage capabilities={capabilities} onBack={back} />;
-      break;
-    case 'alarm':
-      content = <AlarmPage capabilities={capabilities} onBack={back} />;
-      break;
-    case 'sync':
-      content = <SyncPage capabilities={capabilities} onBack={back} />;
-      break;
-    case 'workout':
-      content = <WorkoutPage onBack={back} />;
-      break;
-    case 'ota':
-      content = <OtaPage capabilities={capabilities} onBack={back} />;
-      break;
-    case 'notify':
-      content = <NotifyPage capabilities={capabilities} onBack={back} />;
-      break;
-    default:
-      content = (
-        <HomePage
-          capabilities={capabilities}
-          connectionState={connectionState}
-          onDisconnect={() => void disconnect()}
-          onNavigate={setPage}
-          onReconnect={() => void reconnect()}
-          ready={ready}
-          savedDevice={savedDevice}
-          sdkVersion={sdkVersion}
-          language={language}
-          onToggleLanguage={() => setLanguage(value => (value === 'zh' ? 'en' : 'zh'))}
-        />
-      );
+  if (status === 'ready') {
+    return <>{children}</>;
   }
 
   return (
-    <I18nProvider language={language}>
+    <SafeAreaView style={styles.permissionPage}>
+      <View style={styles.permissionCard}>
+        {status === 'requesting' ? (
+          <ActivityIndicator color={colors.primary} size="large" />
+        ) : null}
+        <Text style={styles.permissionTitle}>
+          {status === 'requesting'
+            ? tr('正在请求蓝牙权限…', 'Requesting Bluetooth permissions…')
+            : tr('蓝牙权限未授予', 'Bluetooth permission was not granted')}
+        </Text>
+        <Text style={styles.permissionMessage}>
+          {status === 'requesting'
+            ? tr('权限就绪后将进入示例。', 'The demo opens when permissions are ready.')
+            : tr(
+                '扫描和连接设备需要蓝牙权限，请重新授权。',
+                'Bluetooth permission is required to scan and connect. Please try again.',
+              )}
+        </Text>
+        {status === 'denied' ? (
+          <View style={styles.permissionAction}>
+            <PrimaryButton
+              label={tr('重新请求权限', 'Request permissions again')}
+              onPress={() => void initialize()}
+            />
+          </View>
+        ) : null}
+      </View>
+    </SafeAreaView>
+  );
+}
+
+/** 首页/设备双 Tab 导航壳，对齐 Flutter demo 的 home_page.dart 顶层结构。 */
+function DemoShell({
+  language,
+  onToggleLanguage,
+}: {
+  language: Language;
+  onToggleLanguage: () => void;
+}) {
+  const {tr} = useI18n();
+  const [tab, setTab] = useState<Tab>('home');
+  const [overlay, setOverlay] = useState<Overlay>(undefined);
+  const controller = useDemoController();
+
+  const openScan = useCallback(async () => {
+    await controller.prepareForScan();
+    setOverlay({kind: 'scan'});
+  }, [controller]);
+  const closeOverlay = useCallback(() => setOverlay(undefined), []);
+  const openWorkout = useCallback(() => setOverlay({kind: 'workout'}), []);
+  const openOta = useCallback(() => setOverlay({kind: 'ota'}), []);
+  const openHistory = useCallback(
+    (definition: HealthDefinition) => setOverlay({kind: 'history', definition}),
+    [],
+  );
+
+  let content;
+  if (overlay?.kind === 'scan') {
+    content = <ScanPage onBack={closeOverlay} />;
+  } else if (overlay?.kind === 'workout') {
+    content = <WorkoutPage controller={controller} onBack={closeOverlay} />;
+  } else if (overlay?.kind === 'ota') {
+    content = <OtaPage controller={controller} onBack={closeOverlay} />;
+  } else if (overlay?.kind === 'history') {
+    content = (
+      <HealthHistoryPage controller={controller} definition={overlay.definition} onBack={closeOverlay} />
+    );
+  } else if (tab === 'device') {
+    content = (
+      <DevicePage controller={controller} onOpenOta={openOta} onOpenScan={() => void openScan()} />
+    );
+  } else {
+    content = (
+      <HomePage
+        controller={controller}
+        onOpenDevice={() => setTab('device')}
+        onOpenHistory={openHistory}
+        onOpenScan={() => void openScan()}
+        onOpenWorkout={openWorkout}
+      />
+    );
+  }
+
+  return (
+    <>
       <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
-        <StatusBar backgroundColor={colors.surface} barStyle="dark-content" />
+        <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
+        {overlay ? null : (
+          <View style={styles.appBar}>
+            <Text style={styles.appBarTitle}>{tr('RW 健康', 'RW Health')}</Text>
+            <LanguageToggle
+              language={language}
+              onToggle={onToggleLanguage}
+            />
+          </View>
+        )}
         {content}
       </SafeAreaView>
-    </I18nProvider>
+      {overlay ? null : (
+        <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.tabBar}>
+          <TabButton
+            active={tab === 'home'}
+            icon="home"
+            label={tr('首页', 'Home')}
+            onPress={() => setTab('home')}
+          />
+          <TabButton
+            active={tab === 'device'}
+            icon="device"
+            label={tr('设备', 'Device')}
+            onPress={() => setTab('device')}
+          />
+        </SafeAreaView>
+      )}
+    </>
+  );
+}
+
+function TabButton({
+  active,
+  icon,
+  label,
+  onPress,
+}: {
+  active: boolean;
+  icon: Tab;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      accessibilityState={{selected: active}}
+      onPress={onPress}
+      style={styles.tabButton}>
+      <TabIcon active={active} kind={icon} />
+      <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function TabIcon({active, kind}: {active: boolean; kind: Tab}) {
+  const color = active ? colors.primary : colors.secondaryText;
+  if (kind === 'home') {
+    return (
+      <View style={styles.tabIcon}>
+        <View style={[styles.homeRoof, {borderColor: color}]} />
+        <View
+          style={[
+            styles.homeBody,
+            {borderColor: color},
+            active && styles.tabIconSelected,
+          ]}
+        />
+      </View>
+    );
+  }
+  return (
+    <View style={styles.tabIcon}>
+      <View style={[styles.watchBand, {backgroundColor: color}]} />
+      <View
+        style={[
+          styles.watchFace,
+          {borderColor: color},
+          active && styles.tabIconSelected,
+        ]}
+      />
+    </View>
+  );
+}
+
+function LanguageToggle({
+  language,
+  onToggle,
+}: {
+  language: Language;
+  onToggle: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityLabel={language === 'zh' ? 'Switch to English' : '切换到中文'}
+      accessibilityRole="button"
+      onPress={onToggle}
+      style={styles.languageToggle}>
+      <Text style={styles.languageToggleText}>{language === 'zh' ? 'EN' : '中文'}</Text>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {flex: 1, backgroundColor: colors.surface},
+  permissionPage: {
+    flex: 1,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  permissionCard: {maxWidth: 360, alignItems: 'center'},
+  permissionTitle: {
+    marginTop: 18,
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  permissionMessage: {
+    marginTop: 8,
+    fontSize: 13,
+    lineHeight: 20,
+    color: colors.secondaryText,
+    textAlign: 'center',
+  },
+  permissionAction: {marginTop: 18, minWidth: 220},
+  safeArea: {flex: 1, backgroundColor: colors.background},
+  appBar: {
+    minHeight: 56,
+    paddingLeft: 16,
+    paddingRight: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  appBarTitle: {flex: 1, fontSize: 20, fontWeight: '700', color: colors.text},
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderTopColor: colors.border,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  tabButton: {
+    flex: 1,
+    minHeight: 62,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabIcon: {width: 24, height: 22, marginBottom: 3},
+  homeRoof: {
+    position: 'absolute',
+    top: 2,
+    left: 6,
+    width: 13,
+    height: 13,
+    borderLeftWidth: 2,
+    borderTopWidth: 2,
+    borderRadius: 2,
+    transform: [{rotate: '45deg'}],
+  },
+  homeBody: {
+    position: 'absolute',
+    left: 5,
+    bottom: 1,
+    width: 15,
+    height: 12,
+    borderWidth: 2,
+    borderTopWidth: 0,
+    borderBottomLeftRadius: 3,
+    borderBottomRightRadius: 3,
+  },
+  watchBand: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 9,
+    width: 6,
+    borderRadius: 2,
+  },
+  watchFace: {
+    position: 'absolute',
+    top: 4,
+    left: 3,
+    width: 18,
+    height: 14,
+    borderWidth: 2,
+    borderRadius: 5,
+    backgroundColor: colors.surface,
+  },
+  tabIconSelected: {backgroundColor: colors.primarySoft},
+  tabLabel: {fontSize: 13, fontWeight: '600', color: colors.secondaryText},
+  tabLabelActive: {color: colors.primary},
+  languageToggle: {
+    minWidth: 44,
+    height: 44,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  languageToggleText: {fontSize: 14, fontWeight: '700', color: colors.primary},
 });
 
 export default App;

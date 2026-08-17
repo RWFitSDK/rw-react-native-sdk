@@ -12,12 +12,12 @@
 
 | 项目 | 说明 |
 |---|---|
-| 当前组件版本 | `0.0.3` |
+| 当前组件版本 | `0.0.5` |
 | 原生 SDK 版本 | Android/iOS 均为 `RW_SDK_V2.0.0_20260724` |
 | React Native | `0.86.x`，仅支持 New Architecture / TurboModule |
 | Node.js | `22.11.0+` |
 | Android | minSdk 26，compileSdk 36 |
-| iOS | iOS 12.0+，仅支持 arm64 真机 |
+| iOS | iOS 15.1+，仅支持 arm64 真机 |
 | 交付方式 | GitHub 仓库 + git tag 依赖 |
 | 原生 SDK | Android AAR 和 iOS `DHBleSDK.framework` 均已包含，无需单独下载 |
 
@@ -62,7 +62,7 @@ npm install
 集成到客户 App 时，使用 GitHub tag 安装并锁定版本：
 
 ```sh
-npm install github:RWFitSDK/rw-react-native-sdk#v0.0.3
+npm install github:RWFitSDK/rw-react-native-sdk#v0.0.5
 ```
 
 等价的 `package.json` 配置：
@@ -70,7 +70,7 @@ npm install github:RWFitSDK/rw-react-native-sdk#v0.0.3
 ```json
 {
   "dependencies": {
-    "react-native-rwfit-ble": "github:RWFitSDK/rw-react-native-sdk#v0.0.3"
+    "react-native-rwfit-ble": "github:RWFitSDK/rw-react-native-sdk#v0.0.5"
   }
 }
 ```
@@ -415,7 +415,7 @@ await RwfitBle.reconnect(savedDevice);
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
-| `getPluginVersion()` | 无 | `Promise<string>` | 返回 `0.0.3_原生SDK版本` |
+| `getPluginVersion()` | 无 | `Promise<string>` | 返回 `0.0.5_原生SDK版本` |
 
 ##### 3.2.1.3 设置用户信息
 
@@ -533,6 +533,8 @@ Android 视频/音乐 HID 依赖系统蓝牙配对，仅 BLE 连接或调用本�
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
 | `getAlarm()` | 无 | `Promise<Alarm[]>` | 获取设备上的完整闹钟数组 |
+
+设备没有闹钟时返回空数组 `[]`。
 
 `Alarm` 字段：
 
@@ -788,7 +790,8 @@ Payload 为 `{testMode, result, isCalibrating, isCompleted}`。
 |---|---|---|---|
 | `startRealtimeMeasure(metric)` | `RealtimeMetric` | `Promise<DynamicMap>` | 启动指定健康指标检测 |
 
-`RealtimeMetric` 支持 `Hr`、`BloodOxy`、`Hrv`、`Pressure`、`BloodSugar`、`BloodPressure`。
+`RealtimeMetric` 支持 `Hr`、`BloodOxy`、`Hrv`、`Pressure`、`BloodSugar`、
+`BloodPressure`、`Temperature`。
 同一时间只能开启一种实时检测，切换前先停止当前类型。
 
 ##### 3.2.2.2 停止实时健康检测
@@ -812,6 +815,19 @@ Payload 为 `{testMode, result, isCalibrating, isCompleted}`。
 | `diastolic` | `number?` | 血压舒张压 |
 | `timestampSec` | `number` | Unix 秒 |
 | `timestampMs` | `number` | 由秒转换的兼容毫秒值 |
+
+`HealthType` 数值定义：
+
+| 枚举 | 数值 | 说明 |
+|---|---:|---|
+| `HealthType.Hr` | 1 | 心率 |
+| `HealthType.BloodOxy` | 3 | 血氧 |
+| `HealthType.BloodPressure` | 4 | 血压 |
+| `HealthType.Pressure` | 8 | 压力 |
+| `HealthType.BloodSugar` | 9 | 血糖 |
+| `HealthType.MuslimCount` | 10 | 赞念计数 |
+| `HealthType.Temperature` | 11 | 体温 |
+| `HealthType.Hrv` | 13 | HRV |
 
 新代码优先使用 `timestampSec`；也可调用导出的 `timestampMs(data)` 辅助函数转换为毫秒。
 
@@ -956,6 +972,13 @@ PPG 定时检测数据可能被下一次检测覆盖；收到 `onSensorRawStoppe
 
 `type` 可能为 `step`、`sleep`、`hr`、`bo`、`bp`、`hrv`、`pressure`、
 `bloodSugar`、`temp`、`muslimCount`。
+
+计步和赞念计数按天返回汇总值及当天的全部明细：
+
+| `type` | 每日对象字段 | `items` 明细字段 |
+|---|---|---|
+| `step` | `time`、`date`、`totalSteps`、`totalCalorie`、`totalDistance`、`activityDataInterval`、`items` | `time`、`index`、`steps`、`calorie`、`distance` |
+| `muslimCount` | `time`、`date`、`totalCount`、`items` | `time`、`count` |
 
 ##### 3.2.2.25 监听同步完成
 

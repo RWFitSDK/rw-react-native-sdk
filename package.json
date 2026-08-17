@@ -1,6 +1,6 @@
 {
   "name": "react-native-rwfit-ble",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "description": "React Native TurboModule bridge for the RWFIT BLE SDK",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",

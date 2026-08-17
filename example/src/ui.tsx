@@ -1,36 +1,24 @@
-import React, {
-  useCallback,
-  useEffect,
-  useState,
-  type PropsWithChildren,
-} from 'react';
-import {
-  BackHandler,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import React, {type PropsWithChildren, type ReactNode, useEffect} from 'react';
+import {BackHandler, Pressable, StyleSheet, Text, View} from 'react-native';
 import {RwfitError} from 'react-native-rwfit-ble';
-import {useI18n} from './i18n';
 
+/** 对齐 Flutter demo 的 demo_theme.dart 配色。 */
 export const colors = {
-  background: '#f5f7fb',
-  surface: '#ffffff',
-  primary: '#365cf5',
-  primarySoft: '#e9edff',
-  text: '#172033',
-  muted: '#68738b',
-  border: '#e2e6ef',
-  success: '#1e7a45',
-  successSoft: '#eaf7ef',
-  warning: '#9a5b00',
-  warningSoft: '#fff4df',
-  danger: '#bc2f3a',
-  disabled: '#a8afbd',
+  background: '#F4F7F5',
+  surface: '#FFFFFF',
+  primary: '#0C9B6C',
+  primarySoft: '#E4F4ED',
+  text: '#18221E',
+  secondaryText: '#8A948F',
+  /** @deprecated 别名，等同 secondaryText；仅供未整改的旧页面使用。 */
+  muted: '#8A948F',
+  border: '#EDF0EE',
+  danger: '#D84B4B',
+  dangerSoft: '#FFEEEE',
+  /** @deprecated 仅供未整改的旧页面使用。 */
+  warning: '#9A5B00',
+  /** @deprecated 仅供未整改的旧页面使用。 */
+  warningSoft: '#FFF4DF',
 };
 
 export function errorMessage(error: unknown): string {
@@ -41,139 +29,232 @@ export function errorMessage(error: unknown): string {
       : String(error);
 }
 
-export function formatResult(value: unknown): string {
-  if (value == null) {
-    return '';
-  }
-  if (typeof value === 'string') {
-    return value;
-  }
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
-  }
-}
-
-export function useResultLog() {
-  const [results, setResults] = useState<string[]>([]);
-  const log = useCallback((message: string) => {
-    setResults(current => [message, ...current].slice(0, 100));
-  }, []);
-  const run = useCallback(
-    async (label: string, action: () => Promise<unknown>) => {
-      try {
-        const result = await action();
-        log(`${label} ✓ ${formatResult(result)}`.trim());
-        return result;
-      } catch (error) {
-        log(`${label} ✗ ${errorMessage(error)}`);
-        return undefined;
-      }
-    },
-    [log],
-  );
-  return {results, log, run};
-}
-
-export function Page({
-  title,
-  onBack,
+/** 卡片容器：白色背景、圆角、无阴影，用于承载设备卡片/网格项/列表分组。 */
+export function Card({
   children,
-}: PropsWithChildren<{title: string; onBack: () => void}>) {
-  const {tr} = useI18n();
+  style,
+}: PropsWithChildren<{style?: object}>) {
+  return <View style={[styles.card, style]}>{children}</View>;
+}
 
-  useEffect(() => {
-    const subscription = BackHandler.addEventListener(
-      'hardwareBackPress',
-      () => {
-        onBack();
-        return true;
-      },
-    );
-    return () => subscription.remove();
-  }, [onBack]);
-
+/** 章节标题：标题 + 可选说明文字/尾部控件。 */
+export function SectionHeading({
+  title,
+  caption,
+  trailing,
+}: {
+  title: string;
+  caption?: string;
+  trailing?: ReactNode;
+}) {
   return (
-    <View style={styles.page}>
-      <View style={styles.appBar}>
-        <Pressable
-          accessibilityLabel={tr('返回', 'Back')}
-          accessibilityRole="button"
-          onPress={onBack}
-          style={({pressed}) => [styles.back, pressed && styles.pressed]}>
-          <Text style={styles.backText}>‹</Text>
-        </Pressable>
-        <Text numberOfLines={1} style={styles.appBarTitle}>
-          {title}
+    <View style={styles.sectionHeading}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {caption ? (
+        <Text numberOfLines={1} style={styles.sectionCaption}>
+          {caption}
         </Text>
-        <View style={styles.back} />
-      </View>
-      {children}
+      ) : (
+        <View style={styles.flexSpacer} />
+      )}
+      {trailing}
     </View>
   );
 }
 
-export function ScreenScroll({children}: PropsWithChildren) {
-  return (
-    <ScrollView
-      contentContainerStyle={styles.screenContent}
-      keyboardShouldPersistTaps="handled">
-      {children}
-    </ScrollView>
-  );
-}
-
-export function Section({
+/** 空状态卡片：标题 + 说明 + 可选操作按钮。 */
+export function EmptyCard({
   title,
-  children,
-}: PropsWithChildren<{title?: string}>) {
+  message,
+  action,
+}: {
+  title: string;
+  message: string;
+  action?: ReactNode;
+}) {
   return (
-    <View style={styles.section}>
-      {title ? <Text style={styles.sectionTitle}>{title}</Text> : null}
-      {children}
-    </View>
+    <Card style={styles.emptyCard}>
+      <Text style={styles.emptyTitle}>{title}</Text>
+      <Text style={styles.emptyMessage}>{message}</Text>
+      {action ? <View style={styles.emptyAction}>{action}</View> : null}
+    </Card>
   );
 }
 
-export function ActionButton({
+export function PrimaryButton({
   label,
   onPress,
   enabled = true,
-  primary = false,
-  danger = false,
-  style,
 }: {
   label: string;
   onPress: () => void;
   enabled?: boolean;
-  primary?: boolean;
-  danger?: boolean;
-  style?: StyleProp<ViewStyle>;
 }) {
-  const {tr} = useI18n();
+  return (
+    <ActionButtonBase enabled={enabled} onPress={onPress} variant="primary">
+      {label}
+    </ActionButtonBase>
+  );
+}
+
+export function OutlineButton({
+  label,
+  onPress,
+  enabled = true,
+  danger = false,
+}: {
+  label: string;
+  onPress: () => void;
+  enabled?: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <ActionButtonBase
+      enabled={enabled}
+      onPress={onPress}
+      variant={danger ? 'dangerOutline' : 'outline'}>
+      {label}
+    </ActionButtonBase>
+  );
+}
+
+function ActionButtonBase({
+  children,
+  onPress,
+  enabled,
+  variant,
+}: PropsWithChildren<{
+  onPress: () => void;
+  enabled: boolean;
+  variant: 'primary' | 'outline' | 'dangerOutline';
+}>) {
   return (
     <Pressable
       accessibilityRole="button"
       disabled={!enabled}
       onPress={onPress}
-      style={({pressed}) => [
-        styles.action,
-        primary && styles.actionPrimary,
-        danger && styles.actionDanger,
-        !enabled && styles.actionDisabled,
-        pressed && styles.pressed,
-        style,
+      style={({pressed}: {pressed: boolean}) => [
+        styles.button,
+        variant === 'primary' && styles.buttonPrimary,
+        variant === 'outline' && styles.buttonOutline,
+        variant === 'dangerOutline' && styles.buttonDangerOutline,
+        !enabled && styles.buttonDisabled,
+        pressed && enabled && styles.pressed,
       ]}>
       <Text
         style={[
-          styles.actionText,
-          (primary || danger) && styles.actionTextPrimary,
-          !enabled && styles.actionTextDisabled,
+          styles.buttonText,
+          variant === 'primary' && styles.buttonTextPrimary,
+          variant === 'dangerOutline' && styles.buttonTextDanger,
+          !enabled && styles.buttonTextDisabled,
         ]}>
-        {enabled ? label : `${label} (${tr('不支持', 'Unsupported')})`}
+        {children}
       </Text>
     </Pressable>
+  );
+}
+
+/** 设备卡片：戒指图标 + 名称 + 连接状态点 + 电量，可点击进入设备页。 */
+export function DeviceCard({
+  name,
+  connectionState,
+  ready,
+  powerLevel,
+  onPress,
+}: {
+  name: string;
+  connectionState: 'connecting' | 'connected' | 'disconnected' | 'failed' | 'idle';
+  ready: boolean;
+  powerLevel?: number;
+  onPress?: () => void;
+}) {
+  const connected = ready && connectionState === 'connected';
+  const stateLabel = ((): string => {
+    switch (connectionState) {
+      case 'connecting':
+        return 'Connecting';
+      case 'failed':
+        return 'Connection failed';
+      case 'connected':
+        return ready ? 'Connected' : 'Disconnected';
+      default:
+        return 'Disconnected';
+    }
+  })();
+  const content = (
+    <Card>
+      <View style={styles.deviceRow}>
+        <View style={styles.deviceIcon}>
+          <View style={styles.deviceIconInner} />
+        </View>
+        <View style={styles.deviceBody}>
+          <Text numberOfLines={1} style={styles.deviceName}>
+            {name || 'RW Smart Ring'}
+          </Text>
+          <View style={styles.deviceMetaRow}>
+            <View
+              style={[
+                styles.deviceDot,
+                {backgroundColor: connected ? colors.primary : colors.secondaryText},
+              ]}
+            />
+            <Text style={styles.deviceMetaText}>{stateLabel}</Text>
+            {powerLevel != null ? (
+              <Text style={styles.deviceMetaText}>  {powerLevel}%</Text>
+            ) : null}
+          </View>
+        </View>
+        {onPress ? <Text style={styles.chevron}>{'\u203a'}</Text> : null}
+      </View>
+    </Card>
+  );
+  if (!onPress) {
+    return content;
+  }
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress}>
+      {content}
+    </Pressable>
+  );
+}
+
+/** 带返回箭头的页面标题栏；同时处理 Android 硬件返回键，供二级页面统一使用。 */
+export function PageHeader({title, onBack}: {title: string; onBack: () => void}) {
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      onBack();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [onBack]);
+
+  return (
+    <View style={styles.pageHeader}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={onBack}
+        style={styles.pageHeaderBack}>
+        <Text style={styles.pageHeaderBackText}>{'\u2039'}</Text>
+      </Pressable>
+      <Text numberOfLines={1} style={styles.pageHeaderTitle}>
+        {title}
+      </Text>
+      <View style={styles.pageHeaderBack} />
+    </View>
+  );
+}
+
+/** 简单页面容器：返回箭头 + 标题，供未整改的旧页面（如 WorkoutPage）复用。 */
+export function Page({
+  title,
+  onBack,
+  children,
+}: PropsWithChildren<{title: string; onBack: () => void}>) {
+  return (
+    <View style={styles.legacyPage}>
+      <PageHeader onBack={onBack} title={title} />
+      {children}
+    </View>
   );
 }
 
@@ -181,165 +262,122 @@ export function ButtonWrap({children}: PropsWithChildren) {
   return <View style={styles.buttonWrap}>{children}</View>;
 }
 
-export function ResultList({results}: {results: string[]}) {
-  const {tr} = useI18n();
-  if (results.length === 0) {
-    return (
-      <Text style={styles.emptyResult}>
-        {tr('操作结果将在这里显示', 'Results will appear here')}
-      </Text>
-    );
-  }
-  return (
-    <View style={styles.results}>
-      {results.map((result, index) => (
-        <View key={`${index}-${result}`} style={styles.resultRow}>
-          <Text selectable style={styles.resultText}>
-            {result}
-          </Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-export function FeatureTile({
-  title,
-  subtitle,
-  icon,
-  enabled = true,
+/** 兼容旧签名的操作按钮（primary/danger 变体），供未整改的旧页面复用。 */
+export function ActionButton({
+  label,
   onPress,
+  enabled = true,
+  primary = false,
+  danger = false,
 }: {
-  title: string;
-  subtitle: string;
-  icon: string;
-  enabled?: boolean;
+  label: string;
   onPress: () => void;
+  enabled?: boolean;
+  primary?: boolean;
+  danger?: boolean;
 }) {
   return (
-    <Pressable
-      accessibilityRole="button"
-      disabled={!enabled}
+    <ActionButtonBase
+      enabled={enabled}
       onPress={onPress}
-      style={({pressed}) => [
-        styles.tile,
-        !enabled && styles.tileDisabled,
-        pressed && styles.pressed,
-      ]}>
-      <View style={[styles.tileIcon, !enabled && styles.tileIconDisabled]}>
-        <Text style={styles.tileIconText}>{icon}</Text>
-      </View>
-      <View style={styles.tileBody}>
-        <Text style={[styles.tileTitle, !enabled && styles.muted]}>{title}</Text>
-        <Text style={styles.tileSubtitle}>{subtitle}</Text>
-      </View>
-      <Text style={[styles.chevron, !enabled && styles.muted]}>›</Text>
-    </Pressable>
+      variant={danger ? 'dangerOutline' : primary ? 'primary' : 'outline'}>
+      {label}
+    </ActionButtonBase>
   );
 }
 
-export const uiStyles = StyleSheet.create({
-  flex: {flex: 1},
-  row: {flexDirection: 'row', alignItems: 'center'},
-  grow: {flex: 1},
-  label: {fontSize: 14, fontWeight: '600', color: colors.text},
-  body: {fontSize: 14, lineHeight: 21, color: colors.muted},
-  input: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 12,
-    color: colors.text,
-  },
-});
-
 const styles = StyleSheet.create({
-  page: {flex: 1, backgroundColor: colors.background},
-  appBar: {
-    height: 58,
+  card: {
     backgroundColor: colors.surface,
+    borderRadius: 18,
+    padding: 18,
+  },
+  sectionHeading: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderBottomColor: colors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 8,
+    paddingTop: 26,
+    paddingBottom: 12,
   },
-  appBarTitle: {
+  sectionTitle: {fontSize: 17, fontWeight: '700', color: colors.text},
+  sectionCaption: {
     flex: 1,
+    marginLeft: 8,
+    fontSize: 12,
+    color: colors.secondaryText,
+    textAlign: 'right',
+  },
+  flexSpacer: {flex: 1},
+  emptyCard: {
+    alignItems: 'center',
+    paddingVertical: 42,
+    paddingHorizontal: 24,
+  },
+  emptyTitle: {fontSize: 15, fontWeight: '700', color: colors.text},
+  emptyMessage: {
+    marginTop: 8,
+    fontSize: 13,
+    color: colors.secondaryText,
     textAlign: 'center',
-    fontSize: 19,
-    fontWeight: '700',
-    color: colors.text,
+    lineHeight: 19,
   },
-  back: {width: 44, height: 44, alignItems: 'center', justifyContent: 'center'},
-  backText: {fontSize: 38, lineHeight: 40, color: colors.primary},
-  screenContent: {padding: 12, paddingBottom: 40},
-  section: {
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  action: {
-    minHeight: 40,
-    borderRadius: 20,
-    paddingHorizontal: 15,
+  emptyAction: {marginTop: 20},
+  button: {
+    minHeight: 44,
+    borderRadius: 12,
+    paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primarySoft,
+  },
+  buttonPrimary: {backgroundColor: colors.primary},
+  buttonOutline: {
+    backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#d9dfff',
+    borderColor: colors.primary,
   },
-  actionPrimary: {backgroundColor: colors.primary, borderColor: colors.primary},
-  actionDanger: {backgroundColor: colors.danger, borderColor: colors.danger},
-  actionDisabled: {backgroundColor: '#f0f1f4', borderColor: '#e7e8ec'},
-  actionText: {fontSize: 13, fontWeight: '600', color: colors.primary},
-  actionTextPrimary: {color: '#fff'},
-  actionTextDisabled: {color: colors.disabled},
-  buttonWrap: {flexDirection: 'row', flexWrap: 'wrap', gap: 8},
+  buttonDangerOutline: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#55D84B4B',
+  },
+  buttonDisabled: {backgroundColor: '#F0F1F4', borderColor: '#E7E8EC'},
+  buttonText: {fontSize: 14, fontWeight: '700', color: colors.primary},
+  buttonTextPrimary: {color: '#FFFFFF'},
+  buttonTextDanger: {color: colors.danger},
+  buttonTextDisabled: {color: '#A8AFBD'},
   pressed: {opacity: 0.72},
-  emptyResult: {color: colors.muted, textAlign: 'center', paddingVertical: 28},
-  results: {gap: 1},
-  resultRow: {
-    backgroundColor: colors.surface,
-    paddingVertical: 11,
-    paddingHorizontal: 12,
-    borderBottomColor: colors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+  deviceRow: {flexDirection: 'row', alignItems: 'center'},
+  deviceIcon: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
   },
-  resultText: {fontSize: 13, lineHeight: 19, color: colors.text},
-  tile: {
+  deviceIconInner: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 7,
+    borderColor: colors.primary,
+  },
+  deviceBody: {flex: 1},
+  deviceName: {fontSize: 16, fontWeight: '700', color: colors.text},
+  deviceMetaRow: {flexDirection: 'row', alignItems: 'center', marginTop: 5},
+  deviceDot: {width: 7, height: 7, borderRadius: 3.5, marginRight: 6},
+  deviceMetaText: {fontSize: 13, color: colors.secondaryText},
+  chevron: {fontSize: 22, color: colors.secondaryText, marginLeft: 8},
+  pageHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    minHeight: 78,
-    paddingHorizontal: 16,
-    borderBottomColor: colors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 4,
+    paddingTop: 8,
   },
-  tileDisabled: {backgroundColor: '#f7f8fa'},
-  tileIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  tileIconDisabled: {backgroundColor: '#ebecef'},
-  tileIconText: {fontSize: 19},
-  tileBody: {flex: 1, paddingVertical: 10},
-  tileTitle: {fontSize: 16, fontWeight: '600', color: colors.text},
-  tileSubtitle: {fontSize: 12, lineHeight: 17, color: colors.muted, marginTop: 3},
-  chevron: {fontSize: 28, color: '#778197', marginLeft: 8},
-  muted: {color: colors.disabled},
+  pageHeaderBack: {width: 40, height: 40, alignItems: 'center', justifyContent: 'center'},
+  pageHeaderBackText: {fontSize: 30, color: colors.primary},
+  pageHeaderTitle: {flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '700', color: colors.text},
+  legacyPage: {flex: 1, backgroundColor: colors.background},
+  buttonWrap: {flexDirection: 'row', flexWrap: 'wrap', gap: 8},
 });

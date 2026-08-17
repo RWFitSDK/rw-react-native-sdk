@@ -4,6 +4,8 @@ export enum HealthType {
   BloodPressure = 4,
   Pressure = 8,
   BloodSugar = 9,
+  MuslimCount = 10,
+  Temperature = 11,
   Hrv = 13,
 }
 
@@ -14,6 +16,7 @@ export enum RealtimeMetric {
   Pressure = 'JL_PRESSURE_DATA_TRANSFER_KEY',
   BloodSugar = 'JL_BLOODSUGAR_DATA_TRANSFER_KEY',
   BloodPressure = 'JL_BP_DATA_TRANSFER_KEY',
+  Temperature = 'JL_TEMP_DATA_TRANSFER_KEY',
 }
 
 export enum PowerOffType {

@@ -2,6 +2,7 @@
 import React, {useEffect, useState} from 'react';
 import {
   ActivityIndicator,
+  AppState,
   FlatList,
   Pressable,
   StyleSheet,
@@ -16,6 +17,7 @@ import {
 } from 'react-native-rwfit-ble';
 import {ActionButton, ButtonWrap, colors, errorMessage, Page} from './ui';
 import {useI18n} from './i18n';
+import type {DemoController} from './useDemoController';
 
 const workoutTypeStart = 7;
 const workoutTypeNames = [
@@ -55,7 +57,13 @@ function workoutName(type: number): string {
   return workoutTypeNames[type - workoutTypeStart] ?? 'Unknown';
 }
 
-export function WorkoutPage({onBack}: {onBack: () => void}) {
+export function WorkoutPage({
+  controller,
+  onBack,
+}: {
+  controller: DemoController;
+  onBack: () => void;
+}) {
   const {tr} = useI18n();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -63,33 +71,68 @@ export function WorkoutPage({onBack}: {onBack: () => void}) {
   const [data, setData] = useState<WorkoutRealtimeData>();
 
   useEffect(() => {
+    let cancelled = false;
     const realtime = RwfitBle.onWorkoutRealtimeData(setData);
-    void RwfitBle.getWorkoutState()
-      .then(current => {
-        if (current.isRunning) {
-          setState(current);
-        }
-      })
-      .catch(error =>
-        setMessage(`${tr('查询运动状态失败', 'Failed to get workout state')}: ${errorMessage(error)}`),
-      );
-    return () => realtime.remove();
-  }, [tr]);
+    const connect = RwfitBle.onConnectState(event => {
+      if (event.state === 'disconnected' || event.state === 'failed') {
+        onBack();
+      }
+    });
+    if (controller.connected) {
+      void RwfitBle.getWorkoutState()
+        .then(current => {
+          if (!cancelled && current.isRunning) {
+            setState(current);
+          }
+        })
+        .catch(error => {
+          if (!cancelled) {
+            setMessage(
+              `${tr('查询运动状态失败', 'Failed to get workout state')}: ${errorMessage(error)}`,
+            );
+          }
+        });
+    } else {
+      setMessage(tr('请先连接设备', 'Connect the device first'));
+    }
+    return () => {
+      cancelled = true;
+      realtime.remove();
+      connect.remove();
+    };
+  }, [controller.connected, onBack, tr]);
 
   useEffect(() => {
     if (!state?.isRunning) {
       return;
     }
-    void RwfitBle.setWorkoutRealtimeEnabled(true).catch(error =>
-      setMessage(`${tr('实时数据开关失败', 'Failed to enable live data')}: ${errorMessage(error)}`),
-    );
+    let mounted = true;
+    const setRealtimeEnabled = (enabled: boolean) => {
+      void RwfitBle.setWorkoutRealtimeEnabled(enabled).catch(error => {
+        if (mounted && enabled) {
+          setMessage(
+            `${tr('实时数据开关失败', 'Failed to enable live data')}: ${errorMessage(error)}`,
+          );
+        }
+      });
+    };
+    setRealtimeEnabled(true);
+    const appState = AppState.addEventListener('change', nextState => {
+      setRealtimeEnabled(nextState === 'active');
+    });
     return () => {
+      mounted = false;
+      appState.remove();
       void RwfitBle.setWorkoutRealtimeEnabled(false).catch(() => undefined);
     };
   }, [state?.isRunning, tr]);
 
   const selectWorkout = async (sportType: number) => {
     if (busy) {
+      return;
+    }
+    if (!controller.connected) {
+      setMessage(tr('设备未连接，请先在设备页连接后再开始运动。', 'The device is not connected. Connect it on the Device tab first.'));
       return;
     }
     setBusy(true);
@@ -120,12 +163,19 @@ export function WorkoutPage({onBack}: {onBack: () => void}) {
     try {
       await RwfitBle.controlWorkout(state.sportType, type);
       if (type === WorkoutControlType.End) {
-        const reports = await RwfitBle.getWorkoutReports();
-        setMessage(
-          `${tr('运动已结束，已同步', 'Workout ended; synced')} ${reports.length} ${tr('条历史报告', 'reports')}`,
-        );
-        setState(undefined);
-        setData(undefined);
+        try {
+          const reports = await RwfitBle.getWorkoutReports();
+          setMessage(
+            `${tr('运动已结束，已同步', 'Workout ended; synced')} ${reports.length} ${tr('条历史报告', 'reports')}`,
+          );
+        } catch (reportError) {
+          setMessage(
+            `${tr('运动已结束，报告同步失败', 'Workout ended; report sync failed')}: ${errorMessage(reportError)}`,
+          );
+        } finally {
+          setState(undefined);
+          setData(undefined);
+        }
       } else {
         setState(await RwfitBle.getWorkoutState());
       }

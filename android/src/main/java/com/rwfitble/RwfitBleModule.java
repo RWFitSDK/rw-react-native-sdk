@@ -47,7 +47,7 @@ import com.facebook.react.bridge.WritableMap;
 public class RwfitBleModule extends NativeRwfitBleSpec {
 
     private static final String TAG = "RwfitBleModule";
-    private static final String PLUGIN_VERSION = "0.0.3";
+    private static final String PLUGIN_VERSION = "0.0.5";
 
     private Activity activity;
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -641,28 +641,10 @@ public class RwfitBleModule extends NativeRwfitBleSpec {
             case "JL_PRESSURE_DATA_TRANSFER_KEY": key = CmdConstants.JL_PRESSURE_DATA_TRANSFER_KEY; break;
             case "JL_BLOODSUGAR_DATA_TRANSFER_KEY": key = CmdConstants.JL_BLOODSUGAR_DATA_TRANSFER_KEY; break;
             case "JL_BP_DATA_TRANSFER_KEY": key = CmdConstants.JL_BP_DATA_TRANSFER_KEY; break;
+            case "JL_TEMP_DATA_TRANSFER_KEY": key = CmdConstants.JL_TEMP_DATA_TRANSFER_KEY; break;
             default:
                 result.error(-1, "unknown key: " + keyName);
                 return;
-        }
-
-        if (realtimeDataCallback != null) {
-            DHBleSdk.INSTANCE.dispose(realtimeDataCallback);
-            realtimeDataCallback = null;
-        }
-
-        // state=1 开启时才订阅实时数据回调；state=0 停止时只 dispose、不再重新订阅
-        if (state == 1) {
-            realtimeDataCallback = new HealthDataBroCallback() {
-                @Override public void onResult(HealthDataSyncBean data) {
-                    if (data == null) return;
-                    JSONObject eventData = buildRealtimeDataPayload(data);
-                    if (eventData != null) fireEvent("rwfit:healthData", eventData);
-                }
-                @Override public void onFail(int errorCode) {}
-                @Override public void onSuccess() {}
-            };
-            DHBleSdk.INSTANCE.subscribeData(realtimeDataCallback);
         }
 
         DHBleSdk.INSTANCE.subscribeData(new HealthDataControlCallback() {
@@ -1163,7 +1145,14 @@ public class RwfitBleModule extends NativeRwfitBleSpec {
                 DHBleSdk.INSTANCE.dispose(this);
             }
             @Override public void onFail(int errorCode) { result.error(errorCode, "getAlarm failed"); DHBleSdk.INSTANCE.dispose(this); }
-            @Override public void onSuccess() {}
+            @Override public void onSuccess() {
+                // 设备中没有闹钟时只返回 ACK，SDK 仅触发 onSuccess，
+                // 不会触发 onResult(emptyList)。统一转换为空列表返回 JS。
+                Map<String, Object> r = success();
+                r.put("data", new ArrayList<>());
+                result.success(r);
+                DHBleSdk.INSTANCE.dispose(this);
+            }
         });
         DHBleSdk.INSTANCE.getAlarmRemindJL();
     }
@@ -1743,12 +1732,42 @@ public class RwfitBleModule extends NativeRwfitBleSpec {
                 event.put("time", last.getTime());
                 return event;
             }
+            case 10: {
+                MuslimCountItemBean item = data.getMuslimCountPartData();
+                if (item == null) return null;
+                event.put("dataValue", item.getCount());
+                event.put("time", item.getTimeMills());
+                return event;
+            }
+            case 11: {
+                List<TempPartData> list = data.getTempPartData();
+                if (list == null || list.isEmpty()) return null;
+                TempPartData last = list.get(list.size() - 1);
+                event.put("dataValue", last.getTemp() / 10.0);
+                event.put("time", last.getTime());
+                return event;
+            }
             default:
                 return null;
         }
     }
 
     private void registerPersistentCallbacks() {
+        // HealthDataBroCallback 同时承载支持手动测量的健康数据，
+        // 以及设备主动上报的赞念计数（赞念计数本身不下发测量命令）。
+        if (realtimeDataCallback == null) {
+            realtimeDataCallback = new HealthDataBroCallback() {
+                @Override public void onResult(HealthDataSyncBean data) {
+                    if (data == null) return;
+                    JSONObject eventData = buildRealtimeDataPayload(data);
+                    if (eventData != null) fireEvent("rwfit:healthData", eventData);
+                }
+                @Override public void onFail(int errorCode) {}
+                @Override public void onSuccess() {}
+            };
+            DHBleSdk.INSTANCE.subscribeData(realtimeDataCallback);
+        }
+
         if (realtimeMeasureStateCallback == null) {
             realtimeMeasureStateCallback = new HealthDataControlCallback() {
                 @Override public void onResult(Integer data) {
