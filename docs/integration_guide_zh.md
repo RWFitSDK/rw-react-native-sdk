@@ -2,6 +2,17 @@
 
 ---
 
+## 目录
+
+- [1. 简介](#1-简介)
+- [2. 快速开始](#2-快速开始quick-start)
+- [3. 接口说明](#3-接口说明api-reference)
+  - [3.1 SDK 初始化、设备发现与连接管理](#31-sdk-初始化设备发现与连接管理)
+  - [3.2 设备功能操作](#32-设备功能操作)
+- [4. 附录](#4-附录)
+
+---
+
 ## 1. 简介
 
 本文面向 App 开发者，说明如何在 React Native 项目中集成
@@ -36,10 +47,9 @@
 1. 建议结合仓库内的 `example/` 集成，重点参考权限申请、扫描、连接和事件清理。
 2. 请求方法返回 `Promise`；失败抛出 `RwfitError(code, message)`。
 3. 每个 `onXxx(listener)` 都返回订阅对象，页面卸载时必须调用 `remove()`。
-4. `connected` 只表示 BLE 链路已建立，业务操作必须等待 `onFunctionMenu`。
-5. iOS 不支持模拟器，请使用 arm64 真机。
-6. Android 和 iOS 共用一套 TypeScript API；平台独占方法在另一平台可能是 no-op，详见对应接口说明。
-7. 组件以源码和内置原生 SDK 形式交付，无需另外复制 SDK 文件或手动注册原生模块。
+4. iOS 不支持模拟器，请使用 arm64 真机。
+5. Android 和 iOS 共用一套 TypeScript API；平台独占方法在另一平台可能是 no-op，详见对应接口说明。
+6. 组件以源码和内置原生 SDK 形式交付，无需另外复制 SDK 文件或手动注册原生模块。
 
 ---
 
@@ -162,8 +172,7 @@ npm run ios -- --device "你的 iPhone 名称"
 
 以下方法、类型和枚举均从 `react-native-rwfit-ble` 导出。
 
-所有请求方法返回 `Promise`。原生结果统一为 `{code, msg, ...}`，公共 Facade 在
-`code !== 0` 时抛出 `RwfitError`。普通读写方法会等待设备响应；扫描、连接、同步、OTA 等启动型方法只表示任务已发起。
+所有请求方法返回 `Promise`，失败时抛出 `RwfitError(code, message)`。普通读写方法会等待设备响应；扫描、连接、同步、OTA 等启动型方法只表示任务已发起。
 
 事件订阅返回 `RwfitSubscription`，必须在页面卸载时调用 `remove()`：
 
@@ -174,9 +183,9 @@ useEffect(() => {
 }, []);
 ```
 
-### 3.1 设备搜索、连接、绑定与重连
+### 3.1 SDK 初始化、设备发现与连接管理
 
-##### 3.1.1 初始化 SDK
+#### 3.1.1 初始化 SDK
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
@@ -186,7 +195,7 @@ useEffect(() => {
 await RwfitBle.init();
 ```
 
-##### 3.1.2 开始搜索蓝牙设备
+#### 3.1.2 开始搜索蓝牙设备
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
@@ -198,7 +207,7 @@ await RwfitBle.init();
 await RwfitBle.startScan();
 ```
 
-##### 3.1.3 监听扫描结果
+#### 3.1.3 监听扫描结果
 
 | 订阅方法 | Payload | 说明 |
 |---|---|---|
@@ -219,7 +228,7 @@ const scanResult = RwfitBle.onScanResult(device => {
 | `rssi` | `number` | 信号强度 |
 | `uuid` | `string?` | iOS 主标识，连接和持久化时必须保留 |
 
-##### 3.1.4 停止搜索蓝牙设备
+#### 3.1.4 停止搜索蓝牙设备
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
@@ -229,7 +238,7 @@ const scanResult = RwfitBle.onScanResult(device => {
 await RwfitBle.stopScan();
 ```
 
-##### 3.1.5 监听扫描结束
+#### 3.1.5 监听扫描结束
 
 | 订阅方法 | Payload | 说明 |
 |---|---|---|
@@ -241,7 +250,7 @@ const scanFinish = RwfitBle.onScanFinish(() => {
 });
 ```
 
-##### 3.1.6 连接设备
+#### 3.1.6 连接设备
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
@@ -254,7 +263,7 @@ await RwfitBle.stopScan();
 await RwfitBle.connect(device);
 ```
 
-##### 3.1.7 查询连接状态
+#### 3.1.7 查询连接状态
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
@@ -264,7 +273,7 @@ await RwfitBle.connect(device);
 const connected = await RwfitBle.isConnected();
 ```
 
-##### 3.1.8 监听连接状态
+#### 3.1.8 监听连接状态
 
 | 订阅方法 | Payload | 说明 |
 |---|---|---|
@@ -286,9 +295,7 @@ const connection = RwfitBle.onConnectState(event => {
 | `uuid` | `string?` | iOS 设备标识 |
 | `reason` | `string?` | 连接失败原因 |
 
-> `connected` 只表示 BLE 链路已连接，不能立即发送业务指令。
-
-##### 3.1.9 监听设备就绪与功能表
+#### 3.1.9 监听设备就绪与功能表
 
 | 订阅方法 | Payload | 说明 |
 |---|---|---|
@@ -361,13 +368,13 @@ App 应根据 `raw` 隐藏或禁用设备不支持的功能。常用能力字段
 | `isFactoryReset` | `boolean` | 是否支持恢复出厂设置 |
 | `isPushMessage` | `boolean` | 是否支持消息推送 |
 
-##### 3.1.10 断开设备
+#### 3.1.10 断开设备
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
 | `disconnect()` | 无 | `Promise<DynamicMap>` | 断开 BLE，不删除 App 保存的设备 |
 
-##### 3.1.11 重连设备
+#### 3.1.11 重连设备
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
@@ -379,7 +386,7 @@ Android 需要传入含 MAC 的设备；iOS 可使用 SDK 保存的绑定态。�
 await RwfitBle.reconnect(savedDevice);
 ```
 
-##### 3.1.12 设置 iOS 绑定状态
+#### 3.1.12 设置 iOS 绑定状态
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
@@ -387,13 +394,13 @@ await RwfitBle.reconnect(savedDevice);
 
 连接就绪后设置 `true`；换绑或清除设备时设置 `false`。
 
-##### 3.1.13 解绑设备
+#### 3.1.13 解绑设备
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
 | `unbind()` | 无 | `Promise<DynamicMap>` | Android 下发解绑；iOS 清除绑定态并断开 |
 
-##### 3.1.14 主动读取功能表
+#### 3.1.14 主动读取功能表
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
@@ -472,9 +479,14 @@ Android 视频/音乐 HID 依赖系统蓝牙配对，仅 BLE 连接或调用本�
 
 ##### 3.2.1.9 创建或取消 Android HID 配对
 
-| 方法 | 参数 | 返回 | 说明 |
-|---|---|---|---|
-| `createOrRemoveBond(type, mac)` | `type` 1=配对、2=取消；设备 MAC | `Promise<boolean>` | Android HID 配对；iOS 返回 false |
+| 方法 | 返回 | 说明 |
+|---|---|---|
+| `createOrRemoveBond(type, mac)` | `Promise<boolean>` | Android HID 配对；iOS 返回 false |
+
+| 参数 | 类型 | 说明 |
+|---|---|---|
+| `type` | `number` | 1=配对，2=取消配对 |
+| `mac` | `string` | 设备 MAC，不能为空 |
 
 ##### 3.2.1.10 获取 LED 亮度
 
@@ -540,7 +552,7 @@ Android 视频/音乐 HID 依赖系统蓝牙配对，仅 BLE 连接或调用本�
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| `alarmId` | `number` | 闹钟 ID |
+| `alarmId` | `number` | 闹钟 ID；读取完整闹钟数组后重新下发时保持原值 |
 | `startHour` | `number` | 小时，范围 0–23 |
 | `startMin` | `number` | 分钟，范围 0–59 |
 | `isOpen` | `boolean` | 是否启用 |
@@ -566,8 +578,7 @@ Android 视频/音乐 HID 依赖系统蓝牙配对，仅 BLE 连接或调用本�
 |---|---|---|---|
 | `getVibrationCount()` | 无 | `Promise<VibrationConfig>` | 返回 `{count, level}` |
 
-`count` 为 0–6，0 表示不振动；原生协议定义设备初始默认值为 2，React Native
-桥接层不会自行填充该默认值。`level` 为 0=关闭、1=低、2=中、3=高。
+`count` 为 0–6，0 表示不振动；`level` 为 0=关闭、1=低、2=中、3=高。
 
 ##### 3.2.1.22 设置振动次数和等级
 
@@ -654,7 +665,8 @@ Payload 为 `{action, rawValue}`。
 |---|---|---|---|
 | `getHeartRateAlert()` | 无 | `Promise<HeartRateAlertConfig>` | 获取高/低心率报警配置 |
 
-配置为 `{isOpen, highThreshold, lowThreshold?}`。
+配置为 `{isOpen, highThreshold, lowThreshold?}`，`highThreshold` 和
+`lowThreshold` 的取值范围均为 0–254。
 
 ##### 3.2.1.34 设置心率报警配置
 
@@ -668,7 +680,7 @@ Payload 为 `{action, rawValue}`。
 |---|---|---|---|
 | `getBloodOxygenAlert()` | 无 | `Promise<BloodOxygenAlertConfig>` | 获取低血氧报警配置 |
 
-配置为 `{isOpen, lowThreshold}`。
+配置为 `{isOpen, lowThreshold}`，`lowThreshold` 的取值范围为 0–254。
 
 ##### 3.2.1.36 设置血氧报警配置
 
@@ -720,15 +732,13 @@ Payload 为 `{type, rawType, value}`。
 |---|---|---|---|
 | `getAlarmVibrationDuration()` | 无 | `Promise<number>` | 获取闹钟振动次数，范围 0–6 |
 
-方法名中的 `Duration` 沿用原生 SDK 命名，协议值实际表示振动次数，而不是时间长度。
+该字段值表示振动次数，而不是秒数或其他时间长度。
 
 ##### 3.2.1.44 设置闹钟振动时长
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
 | `setAlarmVibrationDuration(duration)` | 整数 0–6 | `Promise<DynamicMap>` | 设置闹钟振动次数；0 表示不振动 |
-
-原生协议定义设备初始默认值为 2；React Native 桥接层不会把缺失值自动替换为 2。
 
 ##### 3.2.1.45 获取振动间隔
 
@@ -747,8 +757,6 @@ Payload 为 `{type, rawType, value}`。
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
 | `startHeartRateCalibration()` | 无 | `Promise<DynamicMap>` | 发起心率校正，结果通过事件返回 |
-
-桥接使用的心率校正测试模式为 `0x15`。
 
 ##### 3.2.1.48 监听心率校正结果
 
@@ -814,7 +822,6 @@ Payload 为 `{testMode, result, isCalibrating, isCompleted}`。
 | `value` | `number` | 主值 |
 | `diastolic` | `number?` | 血压舒张压 |
 | `timestampSec` | `number` | Unix 秒 |
-| `timestampMs` | `number` | 由秒转换的兼容毫秒值 |
 
 `HealthType` 数值定义：
 
@@ -829,7 +836,7 @@ Payload 为 `{testMode, result, isCalibrating, isCompleted}`。
 | `HealthType.Temperature` | 11 | 体温 |
 | `HealthType.Hrv` | 13 | HRV |
 
-新代码优先使用 `timestampSec`；也可调用导出的 `timestampMs(data)` 辅助函数转换为毫秒。
+`timestampSec` 为 Unix 秒；如需 JavaScript 毫秒时间戳，将其乘以 `1000`。
 
 ##### 3.2.2.4 监听单次检测完成
 
@@ -844,11 +851,11 @@ Payload 为 `{testMode, result, isCalibrating, isCompleted}`。
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | `isOpen` | `boolean` | 是否开启 |
-| `duration` | `number?` | 可选；检测间隔，单位为分钟，具体限制见各小节 |
-| `startHour` | `number?` | 可选；开始小时，全天检测通常为 0 |
-| `startMin` | `number?` | 可选；开始分钟，全天检测通常为 0 |
-| `endHour` | `number?` | 可选；结束小时，全天检测通常为 23 |
-| `endMin` | `number?` | 可选；结束分钟，全天检测通常为 59 |
+| `duration` | `number?` | 可选；检测间隔仅允许 30 或 60 分钟，缺省为 60 |
+| `startHour` | `number?` | 可选；开始小时，缺省为 0 |
+| `startMin` | `number?` | 可选；开始分钟，缺省为 0 |
+| `endHour` | `number?` | 可选；结束小时，缺省为 23 |
+| `endMin` | `number?` | 可选；结束分钟，缺省为 59 |
 
 时间范围通常为 `00:00–23:59`。修改配置时建议先读取当前值，再用对象展开修改需要的字段。
 
@@ -862,7 +869,7 @@ Payload 为 `{testMode, result, isCalibrating, isCompleted}`。
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
-| `setTimedHeartRate(config)` | `TimedConfig` | `Promise<DynamicMap>` | 间隔通常为 30 或 60 分钟 |
+| `setTimedHeartRate(config)` | `TimedConfig` | `Promise<DynamicMap>` | 间隔仅允许 30 或 60 分钟，缺省为 60 |
 
 ##### 3.2.2.8 获取定时血氧配置
 
@@ -874,7 +881,7 @@ Payload 为 `{testMode, result, isCalibrating, isCompleted}`。
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
-| `setTimedBloodOxygen(config)` | `TimedConfig` | `Promise<DynamicMap>` | 血氧间隔通常为 60 分钟 |
+| `setTimedBloodOxygen(config)` | `TimedConfig` | `Promise<DynamicMap>` | 间隔仅允许 30 或 60 分钟，缺省为 60 |
 
 ##### 3.2.2.10 获取定时 HRV 配置
 
@@ -886,7 +893,7 @@ Payload 为 `{testMode, result, isCalibrating, isCompleted}`。
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
-| `setTimedHRV(config)` | `TimedConfig` | `Promise<DynamicMap>` | HRV 间隔通常为 60 分钟 |
+| `setTimedHRV(config)` | `TimedConfig` | `Promise<DynamicMap>` | 间隔仅允许 30 或 60 分钟，缺省为 60 |
 
 ##### 3.2.2.12 获取定时压力配置
 
@@ -898,7 +905,7 @@ Payload 为 `{testMode, result, isCalibrating, isCompleted}`。
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
-| `setTimedStress(config)` | `TimedConfig` | `Promise<DynamicMap>` | 压力间隔通常为 60 分钟 |
+| `setTimedStress(config)` | `TimedConfig` | `Promise<DynamicMap>` | 间隔仅允许 30 或 60 分钟，缺省为 60 |
 
 ##### 3.2.2.14 获取定时血糖配置
 
@@ -910,7 +917,7 @@ Payload 为 `{testMode, result, isCalibrating, isCompleted}`。
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
-| `setTimedBloodSugar(config)` | `TimedConfig` | `Promise<DynamicMap>` | 血糖间隔通常为 60 分钟 |
+| `setTimedBloodSugar(config)` | `TimedConfig` | `Promise<DynamicMap>` | 间隔仅允许 30 或 60 分钟，缺省为 60 |
 
 ##### 3.2.2.16 获取定时血压配置
 
@@ -922,7 +929,7 @@ Payload 为 `{testMode, result, isCalibrating, isCompleted}`。
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
-| `setTimedBloodPressure(config)` | `TimedConfig` | `Promise<DynamicMap>` | 血压间隔通常为 60 分钟 |
+| `setTimedBloodPressure(config)` | `TimedConfig` | `Promise<DynamicMap>` | 间隔仅允许 30 或 60 分钟，缺省为 60 |
 
 ##### 3.2.2.18 获取定时体温配置
 
@@ -934,7 +941,7 @@ Payload 为 `{testMode, result, isCalibrating, isCompleted}`。
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
-| `setTimedBodyTemperature(config)` | `TimedConfig` | `Promise<DynamicMap>` | 体温间隔通常为 30 或 60 分钟 |
+| `setTimedBodyTemperature(config)` | `TimedConfig` | `Promise<DynamicMap>` | 间隔仅允许 30 或 60 分钟，缺省为 60 |
 
 ##### 3.2.2.20 获取定时 PPG 配置
 
@@ -946,7 +953,7 @@ Payload 为 `{testMode, result, isCalibrating, isCompleted}`。
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
-| `setTimedPPG(config)` | `TimedConfig` | `Promise<DynamicMap>` | 设置 PPG 定时监测配置 |
+| `setTimedPPG(config)` | `TimedConfig` | `Promise<DynamicMap>` | 间隔仅允许 30 或 60 分钟，缺省为 60 |
 
 PPG 定时检测数据可能被下一次检测覆盖；收到 `onSensorRawStopped` 后应尽快调用 `getSensorRawHistory()` 并持久化。
 
@@ -962,7 +969,7 @@ PPG 定时检测数据可能被下一次检测覆盖；收到 `onSensorRawStoppe
 
 | 订阅方法 | Payload | 说明 |
 |---|---|---|
-| `onSyncProgress(listener)` | `number` | 当前只保证同步完成标记 100 |
+| `onSyncProgress(listener)` | `number` | 仅可靠发出 100，表示同步完成 |
 
 ##### 3.2.2.24 监听同步数据批次
 
@@ -996,7 +1003,7 @@ PPG 定时检测数据可能被下一次检测覆盖；收到 `onSensorRawStoppe
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
-| `removeHealthDataCallback()` | 无 | `Promise<DynamicMap>` | 停止继续向 JS 转发同步事件 |
+| `removeHealthDataCallback()` | 无 | `Promise<DynamicMap>` | 停止健康同步事件的继续回调 |
 
 ##### 3.2.2.28 健康历史数据单位
 
@@ -1011,21 +1018,73 @@ PPG 定时检测数据可能被下一次检测覆盖；收到 `onSensorRawStoppe
 
 #### 3.2.3 OTA 升级
 
-##### 3.2.3.1 发起 OTA
+##### 3.2.3.1 获取可用固件
+
+可用固件列表可通过以下接口获取：
+
+```http
+GET https://ruiwo168.com/api/device/getOtaListByModel?model=<deviceClazz>
+```
+
+查询参数 `model` 对应 `getFirmwareVersion()` 返回的 `deviceClazz`。请求前应先读取设备固件信息，并使用实际的 `deviceClazz` 作为 `model`：
+
+```ts
+const firmwareInfo = await RwfitBle.getFirmwareVersion();
+const response = await fetch(
+  `https://ruiwo168.com/api/device/getOtaListByModel?model=${encodeURIComponent(firmwareInfo.deviceClazz)}`,
+);
+const result = await response.json();
+```
+
+接口返回示例：
+
+```json
+{
+  "code": 0,
+  "msg": "操作成功",
+  "data": [
+    {
+      "deviceModel": "DEVICE_MODEL",
+      "toVersion": "X.Y.Z",
+      "size": 123456,
+      "downloadUrl": "https://example.com/path/firmware.bin"
+    }
+  ]
+}
+```
+
+OTA 流程只需关注 `data` 中的以下字段，其他字段可以忽略：
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `deviceModel` | `string` | 固件适用的设备型号，应与 `getFirmwareVersion()` 返回的 `deviceClazz` 完全一致 |
+| `toVersion` | `string` | `downloadUrl` 指向的固件版本号 |
+| `size` | `number` | 固件文件大小，单位为字节（Byte） |
+| `downloadUrl` | `string` | 固件文件下载地址 |
+
+设备当前固件版本为 `getFirmwareVersion()` 返回的 `deviceNo`，目标版本为接口返回的 `toVersion`。App 应在选择固件时比较这两个版本，仅当 `toVersion` 高于 `deviceNo` 时才允许升级。对于 `X.Y.Z` 格式，应按各段数值依次比较，不能直接按字符串比较；如果版本号格式不符合约定或无法比较，应停止升级并确认版本信息。
+
+型号校验和版本比较均由 App 在调用 `ringOta(path)` 前完成。`ringOta(path)` 只接收本地固件文件路径并发起 OTA，不校验 `deviceModel`、`deviceClazz`、`toVersion` 或 `deviceNo`。
+
+如果客户使用自己的服务器管理固件升级，可先通过 `downloadUrl` 下载对应的 `.bin` 固件包，再将固件包保存到自己的服务器，并自行维护 `deviceModel`、`toVersion` 与固件包之间的对应关系。其中，`toVersion` 即该固件包的版本号。
+
+从 `downloadUrl` 下载固件到 App 本地后，将本地文件路径传给 `ringOta(path)`。发起升级前须再次确认 `deviceModel` 与设备的 `deviceClazz` 完全一致。
+
+##### 3.2.3.2 发起 OTA
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
 | `ringOta(path)` | 本地固件文件路径 | `Promise<DynamicMap>` | 提交 OTA 任务，不代表升级完成 |
 
-固件必须由设备厂家提供。升级前调用 `getFirmwareVersion()`，确认 `deviceClazz` 与固件适用型号完全一致。
+固件必须使用上述接口提供的版本。App 调用 `ringOta(path)` 前，必须确认 `deviceClazz` 与固件适用型号完全一致，并确认 `toVersion` 高于当前 `deviceNo`。
 
-##### 3.2.3.2 监听 OTA 进度
+##### 3.2.3.3 监听 OTA 进度
 
 | 订阅方法 | Payload | 说明 |
 |---|---|---|
 | `onOtaProgress(listener)` | `number` | Android/iOS 均归一化为 0–1 |
 
-##### 3.2.3.3 监听 OTA 完成
+##### 3.2.3.4 监听 OTA 完成
 
 | 订阅方法 | Payload | 说明 |
 |---|---|---|
@@ -1123,21 +1182,6 @@ Payload 包含 `duration`、`steps`、`distance`、`calorie`、`heartRate`、`da
 原始睡眠数据的 `mode` 编码：17=开始、34=结束、1=深睡、2=浅睡、3=清醒、4=REM。
 该编码与历史睡眠数据的 `sleepType` 不同，不要混用。
 
-### 3.3 通用事件入口
-
-除各功能下单独列出的 `onXxx` 方法外，也可以使用通用入口：
-
-```ts
-const subscription = RwfitBle.addListener(
-  RwfitEvents.scanResult,
-  device => console.log(device),
-);
-
-subscription.remove();
-```
-
-`addListener()` 与便捷订阅方法的 Payload 类型和生命周期规则完全相同。
-
 ---
 
 ## 4. 附录
@@ -1152,7 +1196,7 @@ try {
   console.log(`电量 ${power}%`);
 } catch (error) {
   if (error instanceof RwfitError) {
-    console.error(error.code, error.message, error.nativeCode);
+    console.error(error.code, error.message);
   } else {
     console.error(error);
   }

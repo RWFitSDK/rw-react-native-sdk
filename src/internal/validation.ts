@@ -87,7 +87,7 @@ export function normalizeAlarms(alarms: Alarm[]): Alarm[] {
     throw new TypeError('alarms must be an array');
   }
   return alarms.map((alarm, index) => {
-    assertRange(alarm.alarmId, 0, 255, `alarms[${index}].alarmId`);
+    assertInteger(alarm.alarmId, `alarms[${index}].alarmId`);
     assertRange(alarm.startHour, 0, 23, `alarms[${index}].startHour`);
     assertRange(alarm.startMin, 0, 59, `alarms[${index}].startMin`);
     const repeats = alarm.repeats ?? [0, 0, 0, 0, 0, 0, 0];

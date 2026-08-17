@@ -12,7 +12,10 @@ import {
   normalizeVibrationConfig,
   normalizeWorkoutReports,
 } from '../lib/module/internal/normalization.js';
-import {validateAlarmVibrationDuration} from '../lib/module/internal/validation.js';
+import {
+  normalizeAlarms,
+  validateAlarmVibrationDuration,
+} from '../lib/module/internal/validation.js';
 
 test('alarm vibration duration validates the native protocol count range', () => {
   assert.doesNotThrow(() => validateAlarmVibrationDuration(0));
@@ -133,4 +136,30 @@ test('alarm list normalization applies stable defaults', () => {
     },
   ]);
   assert.deepEqual(normalizeAlarmsResult(null), []);
+});
+
+test('alarm normalization preserves opaque alarm IDs without applying a public range', () => {
+  const [alarm] = normalizeAlarms([
+    {
+      alarmId: 256,
+      startHour: 8,
+      startMin: 30,
+      isOpen: true,
+      repeats: [1, 0, 0, 0, 0, 0, 0],
+    },
+  ]);
+
+  assert.equal(alarm.alarmId, 256);
+  assert.throws(
+    () =>
+      normalizeAlarms([
+        {
+          alarmId: 1.5,
+          startHour: 8,
+          startMin: 30,
+          isOpen: true,
+        },
+      ]),
+    TypeError,
+  );
 });
